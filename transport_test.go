@@ -1,4 +1,4 @@
-package httpmock
+package httpmock_test
 
 import (
 	"io/ioutil"
@@ -7,18 +7,22 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/jarcoal/httpmock"
 )
 
 var testUrl = "http://www.example.com/"
 
 func TestMockTransport(t *testing.T) {
-	Activate()
-	defer Deactivate()
+	t.Parallel()
+
+	httpmock.Activate()
+	defer httpmock.Deactivate()
 
 	url := "https://github.com/"
 	body := "hello world"
 
-	RegisterResponder("GET", url, NewStringResponder(200, body))
+	httpmock.RegisterResponder("GET", url, httpmock.NewStringResponder(200, body))
 
 	resp, err := http.Get(url)
 	if err != nil {
@@ -37,39 +41,43 @@ func TestMockTransport(t *testing.T) {
 
 	// the http client wraps our NoResponderFound error, so we just try and match on text
 	if _, err := http.Get(testUrl); !strings.Contains(err.Error(),
-		NoResponderFound.Error()) {
+		httpmock.NoResponderFound.Error()) {
 
 		t.Fatal(err)
 	}
 }
 
 func TestMockTransportReset(t *testing.T) {
-	DeactivateAndReset()
+	t.Parallel()
 
-	if len(DefaultTransport.responders) > 0 {
+	httpmock.DeactivateAndReset()
+
+	if httpmock.Transports.Default.Len() > 0 {
 		t.Fatal("expected no responders at this point")
 	}
 
-	RegisterResponder("GET", testUrl, nil)
+	httpmock.RegisterResponder("GET", testUrl, nil)
 
-	if len(DefaultTransport.responders) != 1 {
+	if httpmock.Transports.Default.Len() != 1 {
 		t.Fatal("expected one responder")
 	}
 
-	Reset()
+	httpmock.Reset()
 
-	if len(DefaultTransport.responders) > 0 {
+	if httpmock.Transports.Default.Len() > 0 {
 		t.Fatal("expected no responders as they were just reset")
 	}
 }
 
 func TestMockTransportNoResponder(t *testing.T) {
-	Activate()
-	defer DeactivateAndReset()
+	t.Parallel()
 
-	Reset()
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
 
-	if DefaultTransport.noResponder != nil {
+	httpmock.Reset()
+
+	if !httpmock.Transports.Default.HasNoResponder() {
 		t.Fatal("expected noResponder to be nil")
 	}
 
@@ -77,7 +85,7 @@ func TestMockTransportNoResponder(t *testing.T) {
 		t.Fatal("expected to receive a connection error due to lack of responders")
 	}
 
-	RegisterNoResponder(NewStringResponder(200, "hello world"))
+	httpmock.RegisterNoResponder(httpmock.NewStringResponder(200, "hello world"))
 
 	resp, err := http.Get(testUrl)
 	if err != nil {
@@ -95,11 +103,13 @@ func TestMockTransportNoResponder(t *testing.T) {
 }
 
 func TestMockTransportQuerystringFallback(t *testing.T) {
-	Activate()
-	defer DeactivateAndReset()
+	t.Parallel()
+
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
 
 	// register the testUrl responder
-	RegisterResponder("GET", testUrl, NewStringResponder(200, "hello world"))
+	httpmock.RegisterResponder("GET", testUrl, httpmock.NewStringResponder(200, "hello world"))
 
 	// make a request for the testUrl with a querystring
 	resp, err := http.Get(testUrl + "?hello=world")
@@ -124,18 +134,20 @@ func (d *dummyTripper) RoundTrip(*http.Request) (*http.Response, error) {
 }
 
 func TestMockTransportInitialTransport(t *testing.T) {
-	DeactivateAndReset()
+	t.Parallel()
+
+	httpmock.DeactivateAndReset()
 
 	tripper := &dummyTripper{}
 	http.DefaultTransport = tripper
 
-	Activate()
+	httpmock.Activate()
 
 	if http.DefaultTransport == tripper {
 		t.Fatal("expected http.DefaultTransport to be a mock transport")
 	}
 
-	Deactivate()
+	httpmock.Deactivate()
 
 	if http.DefaultTransport != tripper {
 		t.Fatal("expected http.DefaultTransport to be dummy")
@@ -143,6 +155,8 @@ func TestMockTransportInitialTransport(t *testing.T) {
 }
 
 func TestMockTransportNonDefault(t *testing.T) {
+	t.Parallel()
+
 	// create a custom http client w/ custom Roundtripper
 	client := &http.Client{
 		Transport: &http.Transport{
@@ -156,12 +170,12 @@ func TestMockTransportNonDefault(t *testing.T) {
 	}
 
 	// activate mocks for the client
-	ActivateNonDefault(client)
-	defer DeactivateAndReset()
+	httpmock.ActivateNonDefault(client)
+	defer httpmock.DeactivateAndReset()
 
 	body := "hello world!"
 
-	RegisterResponder("GET", testUrl, NewStringResponder(200, body))
+	httpmock.RegisterResponder("GET", testUrl, httpmock.NewStringResponder(200, body))
 
 	req, err := http.NewRequest("GET", testUrl, nil)
 	if err != nil {

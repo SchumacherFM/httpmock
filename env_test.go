@@ -20,7 +20,7 @@ func TestEnv(t *testing.T) {
 
 	// make sure an activation works
 	Activate()
-	if http.DefaultTransport != DefaultTransport {
+	if http.DefaultTransport != Transports.Default {
 		t.Fatal("expected http.DefaultTransport to be our DefaultTransport")
 	}
 	Deactivate()
@@ -33,7 +33,7 @@ func TestEnv(t *testing.T) {
 
 	// make sure activation doesn't work
 	Activate()
-	if http.DefaultTransport == DefaultTransport {
+	if http.DefaultTransport == Transports.Default {
 		t.Fatal("expected http.DefaultTransport to not be our DefaultTransport")
 	}
 	Deactivate()
